@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>台灣生態地圖與季節生物圖鑑</title>
+  <style>
+    :root {
+      --primary-color: #2e7d32;
+      --primary-light: #e8f5e9;
+      --secondary-color: #0288d1;
+      --secondary-light: #e1f5fe;
+      --accent-color: #f57c00;
+      --bg-color: #f4f7f6;
+      --card-bg: #ffffff;
+      --text-main: #2c3e50;
+      --text-sub: #607d8b;
+      --shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding-bottom: 40px;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1b5e20, #00838f);
+      color: white;
+      text-align: center;
+      padding: 25px 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    header h1 {
+      font-size: 2.2rem;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+    }
+
+    header p {
+      font-size: 1rem;
+      opacity: 0.9;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 20px auto 0;
+      padding: 0 20px;
+    }
+
+    /* 季節選擇列 */
+    .control-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn {
+      border: 2px solid transparent;
+      background: #eceff1;
+      color: var(--text-main);
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      font-size: 0.9rem;
+    }
+
+    .btn:hover {
+      background: #cfd8dc;
+      transform: translateY(-2px);
+    }
+
+    .btn.active {
+      background: var(--primary-color);
+      color: white;
+      box-shadow: 0 4px 10px rgba(46, 125, 50, 0.3);
+    }
+
+    .btn-season.active[data-season="spring"] { background: #4caf50; }
+    .btn-season.active[data-season="summer"] { background: #ff9800; }
+    .btn-season.active[data-season="autumn"] { background: #ff5722; }
+    .btn-season.active[data-season="winter"] { background: #0288d1; }
+
+    /* 主要雙欄版面：左地圖，右選單控制 */
+    .main-interactive-grid {
+      display: grid;
+      grid-template-columns: 480px 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .main-interactive-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 地圖卡片 */
+    .map-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .map-svg-container {
+      width: 100%;
+      height: auto;
+      max-height: 520px;
+    }
+
+    /* 國家公園地圖標點樣式 */
+    .park-pin {
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .park-pin circle.pin-head {
+      fill: #e65100;
+      stroke: #ffffff;
+      stroke-width: 2;
+      transition: all 0.3s ease;
+    }
+
+    .park-pin text.pin-label {
+      font-size: 11px;
+      font-weight: bold;
+      fill: #2c3e50;
+      text-anchor: middle;
+      pointer-events: none;
+    }
+
+    .park-pin:hover circle.pin-head {
+      fill: #ff9800;
+      r: 12;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+    }
+
+    .park-pin.active circle.pin-head {
+      fill: #2e7d32;
+      r: 14;
+      stroke: #ffe0b2;
+      stroke-width: 3;
+      filter: drop-shadow(0 4px 10px rgba(46,125,50,0.5));
+    }
+
+    .park-pin.active text.pin-label {
+      fill: #2e7d32;
+      font-size: 13px;
+    }
+
+    /* 海洋/離島標點 */
+    .park-pin.island circle.pin-head {
+      fill: #0288d1;
+    }
+
+    .park-pin.island.active circle.pin-head {
+      fill: #00bcd4;
+    }
+
+    /* 右側控制卡片 */
+    .controls-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .current-park-banner {
+      background: var(--primary-light);
+      border-left: 6px solid var(--primary-color);
+      padding: 16px;
+      border-radius: 8px;
+    }
+
+    .current-park-banner h2 {
+      font-size: 1.4rem;
+      color: var(--primary-color);
+      margin-bottom: 4px;
+    }
+
+    .current-park-banner p {
+      font-size: 0.95rem;
+      color: var(--text-main);
+    }
+
+    .filter-group {
+      border-top: 1px solid #eceff1;
+      padding-top: 16px;
+    }
+
+    .btn-sub.active {
+      background: var(--secondary-color);
+      color: white;
+    }
+
+    /* 生物圖卡區 */
+    .species-section {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .species-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .species-card {
+      background: #ffffff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .species-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+      border-color: var(--primary-color);
+    }
+
+    .species-card img {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+    }
+
+    .species-card-content {
+      padding: 16px;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .species-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+      color: var(--text-main);
+    }
+
+    .species-card .latin {
+      font-size: 0.85rem;
+      color: var(--text-sub);
+      font-style: italic;
+      margin-bottom: 10px;
+    }
+
+    .tag {
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 12px;
+      background: #ffe0b2;
+      color: #e65100;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .empty-msg {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-sub);
+      font-size: 1.1rem;
+      grid-column: 1 / -1;
+    }
+
+    /* Modal 彈窗 */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: white;
+      border-radius: var(--radius);
+      max-width: 650px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: rgba(0,0,0,0.5);
+      color: white;
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-size: 1.2rem;
+      cursor: pointer;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-hero {
+      width: 100%;
+      height: 280px;
+      object-fit: cover;
+    }
+
+    .modal-body {
+      padding: 24px;
+    }
+
+    .modal-title {
+      font-size: 1.6rem;
+      margin-bottom: 4px;
+    }
+
+    .modal-latin {
+      font-style: italic;
+      color: var(--text-sub);
+      margin-bottom: 16px;
+    }
+
+    .modal-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+      background: #f8f9fa;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+    }
+
+    .modal-desc {
+      font-size: 0.98rem;
+      color: #37474f;
+      margin-bottom: 20px;
+      white-space: pre-line;
+    }
+
+    .modal-link {
+      display: inline-block;
+      background: var(--secondary-color);
+      color: white;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 25px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>台灣生態地圖與季節生物圖鑑</h1>
+    <p>點擊地圖上的國家公園標點，探索台灣豐富多樣的野生動植物與海洋生態</p>
+  </header>
+
+  <div class="container">
+    
+    <!-- 季節選擇器 -->
+    <div class="control-card">
+      <div class="section-title">🌸 選擇探索季節</div>
+      <div class="btn-group">
+        <button class="btn btn-season active" data-season="spring">🌱 春季 (3-5月)</button>
+        <button class="btn btn-season" data-season="summer">☀️ 夏季 (6-8月)</button>
+        <button class="btn btn-season" data-season="autumn">🍁 秋季 (9-11月)</button>
+        <button class="btn btn-season" data-season="winter">❄️ 冬季 (12-2月)</button>
+      </div>
+    </div>
+
+    <!-- 互動地圖與控制區 -->
+    <div class="main-interactive-grid">
+      
+      <!-- 台灣地圖 SVG -->
+      <div class="map-card">
+        <div class="section-title">🗺️ 點擊地圖國家公園標點</div>
+        <svg class="map-svg-container" viewBox="0 0 450 500">
+          <!-- 海洋背景與緯度裝飾 -->
+          <rect width="450" height="500" fill="#e0f7fa" rx="12" />
+
+          <!-- 台灣本島輪廓 (高還原度幾何 SVG) -->
+          <path fill="#c8e6c9" stroke="#81c784" stroke-width="2" d="
+            M220,50 
+            Q250,70 260,110 
+            Q270,160 265,210 
+            Q255,270 240,320 
+            Q225,370 200,410 
+            Q180,430 175,410 
+            Q170,380 180,340 
+            Q185,290 180,240 
+            Q175,190 185,140 
+            Q195,90 220,50 Z" />
+
+          <!-- 金門群島 (左上) -->
+          <path class="map-island-bg" fill="#b2ebf2" stroke="#4dd0e1" d="M40,110 Q60,105 70,115 Q55,125 40,110 Z" />
+          
+          <!-- 澎湖群島 (左中) -->
+          <circle cx="100" cy="240" r="14" fill="#b2ebf2" stroke="#4dd0e1" />
+
+          <!-- 東沙環礁 (左下小視窗) -->
+          <rect x="20" y="400" width="80" height="70" fill="#ffffff" stroke="#b0bec5" rx="6" />
+          <circle cx="60" cy="435" r="12" fill="#e0f7fa" stroke="#00bcd4" stroke-dasharray="2,2" />
+          <text x="60" y="462" font-size="9" fill="#546e7a" text-anchor="middle">東沙環礁</text>
+
+          <!-- 9座國家公園定位標點 Pin -->
+          <!-- 1. 陽明山 -->
+          <g class="park-pin" data-region="yangmingshan">
+            <circle class="pin-head" cx="225" cy="70" r="9" />
+            <text class="pin-label" x="225" y="55">陽明山</text>
+          </g>
+
+          <!-- 2. 雪霸 -->
+          <g class="park-pin" data-region="sheipa">
+            <circle class="pin-head" cx="220" cy="130" r="9" />
+            <text class="pin-label" x="220" y="115">雪霸</text>
+          </g>
+
+          <!-- 3. 太魯閣 -->
+          <g class="park-pin" data-region="taroko">
+            <circle class="pin-head" cx="248" cy="165" r="9" />
+            <text class="pin-label" x="290" y="169">太魯閣</text>
+          </g>
+
+          <!-- 4. 玉山 (預設選取) -->
+          <g class="park-pin active" data-region="yushan">
+            <circle class="pin-head" cx="215" cy="235" r="9" />
+            <text class="pin-label" x="215" y="220">玉山</text>
+          </g>
+
+          <!-- 5. 台江 -->
+          <g class="park-pin" data-region="taijiang">
+            <circle class="pin-head" cx="178" cy="310" r="9" />
+            <text class="pin-label" x="145" y="314">台江</text>
+          </g>
+
+          <!-- 6. 墾丁 -->
+          <g class="park-pin" data-region="kenting">
+            <circle class="pin-head" cx="195" cy="410" r="9" />
+            <text class="pin-label" x="195" y="432">墾丁</text>
+          </g>
+
+          <!-- 7. 金門 (離島) -->
+          <g class="park-pin island" data-region="kinmen">
+            <circle class="pin-head" cx="55" cy="115" r="8" />
+            <text class="pin-label" x="55" y="100">金門</text>
+          </g>
+
+          <!-- 8. 澎湖南方四島 (離島) -->
+          <g class="park-pin island" data-region="penghusouth">
+            <circle class="pin-head" cx="100" cy="255" r="8" />
+            <text class="pin-label" x="100" y="280">澎湖南方四島</text>
+          </g>
+
+          <!-- 9. 東沙環礁 (離島) -->
+          <g class="park-pin island" data-region="dongsha">
+            <circle class="pin-head" cx="60" cy="435" r="8" />
+            <text class="pin-label" x="60" y="420">東沙環礁</text>
+          </g>
+
+        </svg>
+      </div>
+
+      <!-- 右側地區詳細資訊與多重篩選面板 -->
+      <div class="controls-card">
+        <!-- 當前選取的國家公園橫幅 -->
+        <div class="current-park-banner">
+          <h2 id="park-name">玉山國家公園</h2>
+          <p id="park-desc">台灣陸域面積最大的國家公園，涵蓋玉山群峰與高山生態系。</p>
+        </div>
+
+        <!-- 次選單：海拔與分區 -->
+        <div class="filter-group">
+          <div class="section-title" style="justify-content: flex-start;">🏔️ 海拔 / 環境分區</div>
+          <div class="btn-group" id="subregion-group" style="justify-content: flex-start;"></div>
+        </div>
+
+        <!-- 次選單：生物分類 -->
+        <div class="filter-group">
+          <div class="section-title" style="justify-content: flex-start;">🐾 生物種類篩選</div>
+          <div class="btn-group" id="category-group" style="justify-content: flex-start;">
+            <button class="btn btn-cat active" data-cat="all">全部</button>
+            <button class="btn btn-cat" data-cat="mammal">哺乳類</button>
+            <button class="btn btn-cat" data-cat="bird">鳥類</button>
+            <button class="btn btn-cat" data-cat="plant">植物</button>
+            <button class="btn btn-cat" data-cat="marine">海洋生物</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 生物卡片展示區 -->
+    <div class="species-section">
+      <div class="section-title" style="justify-content: space-between;">
+        <span id="result-count">🔍 生物搜尋結果</span>
+      </div>
+      <div class="species-grid" id="species-grid"></div>
+    </div>
+
+  </div>
+
+  <!-- 詳細資料 Modal 彈窗 -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-card">
+      <button class="modal-close" id="modal-close">&times;</button>
+      <img src="" alt="" class="modal-hero" id="modal-img">
+      <div class="modal-body">
+        <h2 class="modal-title" id="modal-title"></h2>
+        <div class="modal-latin" id="modal-latin"></div>
+        <div class="modal-meta">
+          <div><strong>國家公園：</strong><span id="modal-region"></span></div>
+          <div><strong>環境分區：</strong><span id="modal-subregion"></span></div>
+          <div><strong>季節：</strong><span id="modal-seasons"></span></div>
+          <div><strong>保育等級：</strong><span id="modal-status"></span></div>
+        </div>
+        <p class="modal-desc" id="modal-desc"></p>
+        <a href="#" target="_blank" rel="noopener noreferrer" class="modal-link" id="modal-link">前往官方參考網址 🔗</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 國家公園與地區完整資料庫
+    const regionData = {
+      yushan: {
+        name: "玉山國家公園",
+        desc: "台灣陸域面積最大的國家公園，涵蓋玉山群峰與高山生態系。",
+        subregions: [
+          { id: "all", name: "全部海拔" },
+          { id: "high", name: "高海拔 (>3000m)" },
+          { id: "mid", name: "中海拔 (1500-3000m)" }
+        ]
+      },
+      kenting: {
+        name: "墾丁國家公園",
+        desc: "台灣第一座國家公園，兼具熱帶海洋、珊瑚礁海岸與森林生態。",
+        subregions: [
+          { id: "all", name: "全區環境" },
+          { id: "coral", name: "淺海珊瑚礁" },
+          { id: "terrestrial", name: "陸域森林" }
+        ]
+      },
+      yangmingshan: {
+        name: "陽明山國家公園",
+        desc: "位於臺北近郊，以火山地形、溫泉、硫氣孔及季節性花海聞名。",
+        subregions: [
+          { id: "all", name: "全區環境" },
+          { id: "volcano", name: "火山芒草區" },
+          { id: "wetland", name: "濕地生態區" }
+        ]
+      },
+      taroko: {
+        name: "太魯閣國家公園",
+        desc: "橫跨花蓮、臺中與南投，以立霧溪深邃壯麗的大理石峽谷著稱。",
+        subregions: [
+          { id: "all", name: "全區環境" },
+          { id: "gorge", name: "峽谷峭壁區" },
+          { id: "trail", name: "中海拔林道" }
+        ]
+      },
+      sheipa: {
+        name: "雪霸國家公園",
+        desc: "擁有多座海拔3千公尺以上高山，並保育國寶魚台灣櫻花鉤吻鮭。",
+        subregions: [
+          { id: "all", name: "全區環境" },
+          { id: "river", name: "高山溪流區" },
+          { id: "high_mountain", name: "高山寒原" }
+        ]
+      },
+      kinmen: {
+        name: "金門國家公園",
+        desc: "以戰地文物、歷史古厝、洋樓群及豐富的候鳥生態為特色。",
+        subregions: [
+          { id: "all", name: "全區環境" },
+          { id: "lake", name: "濕地湖庫區" }
+        ]
+      },
+      dongsha: {
+        name: "東沙環礁國家公園",
+        desc: "台灣第一座海洋國家公園，擁有完整的珊瑚環礁與白沙地質。",
+        subregions: [
+          { id: "all", name: "全區環境" },
+          { id: "atoll", name: "海洋環礁區" }
+        ]
+      },
+      taijiang: {
+        name: "台江國家公園",
+        desc: "位於臺南沿海，結合濕地生態、黑面琵鷺度冬區與鹽田人文。",
+        subregions: [
+          { id: "all", name: "全區環境" },
+          { id: "wetland_bird", name: "濕地保護區" }
+        ]
+      },
+      penghusouth: {
+        name: "澎湖南方四島國家公園",
+        desc: "由東吉、西吉等四島及周邊礁嶼組成，擁玄武岩地質與純淨海域。",
+        subregions: [
+          { id: "all", name: "全區環境" },
+          { id: "basalt_sea", name: "玄武岩與海域" }
+        ]
+      }
+    };
+
+    // 特色生物資料庫
+    const speciesDatabase = [
+      {
+        id: "formosan_black_bear",
+        name: "台灣黑熊",
+        latin: "Ursus thibetanus formosanus",
+        region: "yushan",
+        subregion: "mid",
+        category: "mammal",
+        seasons: ["spring", "summer", "autumn", "winter"],
+        status: "瀕臨絕種保育類",
+        img: "https://images.unsplash.com/photo-1530595467537-0b5996c41f2d?auto=format&fit=crop&w=600&q=80",
+        desc: "台灣特有亞種黑熊，胸前有顯眼的白色V字形斑紋。玉山國家公園是台灣黑熊核心族群重要的棲息地。",
+        link: "https://www.ysnp.gov.tw/"
+      },
+      {
+        id: "mikado_pheasant",
+        name: "帝雉 (黑長尾雉)",
+        latin: "Syrmaticus mikado",
+        region: "yushan",
+        subregion: "high",
+        category: "bird",
+        seasons: ["spring", "summer", "autumn", "winter"],
+        status: "珍貴稀有保育類",
+        img: "https://images.unsplash.com/photo-1522926193341-e9ffd686c60f?auto=format&fit=crop&w=600&q=80",
+        desc: "台灣高山迷霧中的國寶鳥，印於千元大鈔背面。雄鳥羽色呈深藍色金屬光澤。",
+        link: "https://www.ysnp.gov.tw/"
+      },
+      {
+        id: "green_sea_turtle",
+        name: "綠蠵龜",
+        latin: "Chelonia mydas",
+        region: "kenting",
+        subregion: "coral",
+        category: "marine",
+        seasons: ["spring", "summer"],
+        status: "瀕臨絕種保育類",
+        img: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=600&q=80",
+        desc: "墾丁周邊海域常見的海洋爬蟲類。春夏季節為繁殖產卵期，主要以海草與海藻為主食。",
+        link: "https://www.ktnp.gov.tw/"
+      },
+      {
+        id: "taiwan_salmon",
+        name: "台灣櫻花鉤吻鮭",
+        latin: "Oncorhynchus masou formosanus",
+        region: "sheipa",
+        subregion: "river",
+        category: "marine",
+        seasons: ["spring", "summer", "autumn", "winter"],
+        status: "瀕臨絕種保育類",
+        img: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=600&q=80",
+        desc: "台灣國寶魚，僅生存於雪霸國家公園內的七家灣溪高山冷水域，對水質要求極高。",
+        link: "https://www.spnp.gov.tw/"
+      },
+      {
+        id: "black_faced_spoonbill",
+        name: "黑面琵鷺",
+        latin: "Platalea minor",
+        region: "taijiang",
+        subregion: "wetland_bird",
+        category: "bird",
+        seasons: ["autumn", "winter"],
+        status: "瀕臨絕種保育類",
+        img: "https://images.unsplash.com/photo-1606567595334-d39972c85dbe?auto=format&fit=crop&w=600&q=80",
+        desc: "每年秋冬會從北方飛到台江國家公園的濕地與魚塭度冬，擁有湯匙狀的黑色長嘴。",
+        link: "https://www.tjnp.gov.tw/"
+      },
+      {
+        id: "formosan_sika_deer",
+        name: "台灣梅花鹿",
+        latin: "Cervus nippon taiouanus",
+        region: "kenting",
+        subregion: "terrestrial",
+        category: "mammal",
+        seasons: ["spring", "summer", "autumn", "winter"],
+        status: "保育類野生動物",
+        img: "https://images.unsplash.com/photo-1484406573264-08d6e94c1b33?auto=format&fit=crop&w=600&q=80",
+        desc: "台灣特有亞種，經墾丁國家公園長期復育後，目前在恆春半島野外穩定生存。",
+        link: "https://www.ktnp.gov.tw/"
+      }
+    ];
+
+    let currentState = {
+      season: "spring",
+      region: "yushan",
+      subregion: "all",
+      category: "all"
+    };
+
+    // DOM 元素引用
+    const parkNameEl = document.getElementById("park-name");
+    const parkDescEl = document.getElementById("park-desc");
+    const subregionGroup = document.getElementById("subregion-group");
+    const categoryGroup = document.getElementById("category-group");
+    const speciesGrid = document.getElementById("species-grid");
+    const resultCount = document.getElementById("result-count");
+
+    // Modal DOM
+    const modalOverlay = document.getElementById("modal-overlay");
+    const modalClose = document.getElementById("modal-close");
+    const modalImg = document.getElementById("modal-img");
+    const modalTitle = document.getElementById("modal-title");
+    const modalLatin = document.getElementById("modal-latin");
+    const modalRegion = document.getElementById("modal-region");
+    const modalSubregion = document.getElementById("modal-subregion");
+    const modalSeasons = document.getElementById("modal-seasons");
+    const modalStatus = document.getElementById("modal-status");
+    const modalDesc = document.getElementById("modal-desc");
+    const modalLink = document.getElementById("modal-link");
+
+    function init() {
+      setupEventListeners();
+      updateParkBanner();
+      renderSubregions();
+      renderSpecies();
+    }
+
+    function setupEventListeners() {
+      // 地圖標點點擊事件
+      document.querySelectorAll(".park-pin").forEach(pin => {
+        pin.addEventListener("click", () => {
+          document.querySelectorAll(".park-pin").forEach(p => p.classList.remove("active"));
+          pin.classList.add("active");
+          currentState.region = pin.dataset.region;
+          currentState.subregion = "all";
+          updateParkBanner();
+          renderSubregions();
+          renderSpecies();
+        });
+      });
+
+      // 季節按鈕事件
+      document.querySelectorAll(".btn-season").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          document.querySelectorAll(".btn-season").forEach(b => b.classList.remove("active"));
+          e.target.classList.add("active");
+          currentState.season = e.target.dataset.season;
+          renderSpecies();
+        });
+      });
+
+      // 生物分類按鈕事件
+      categoryGroup.querySelectorAll(".btn-cat").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          categoryGroup.querySelectorAll(".btn-cat").forEach(b => b.classList.remove("active"));
+          e.target.classList.add("active");
+          currentState.category = e.target.dataset.cat;
+          renderSpecies();
+        });
+      });
+
+      modalClose.addEventListener("click", closeModal);
+      modalOverlay.addEventListener("click", (e) => {
+        if (e.target === modalOverlay) closeModal();
+      });
+    }
+
+    function updateParkBanner() {
+      const data = regionData[currentState.region];
+      parkNameEl.textContent = data.name;
+      parkDescEl.textContent = data.desc;
+    }
+
+    function renderSubregions() {
+      const currentRegionInfo = regionData[currentState.region];
+      subregionGroup.innerHTML = "";
+
+      currentRegionInfo.subregions.forEach(sub => {
+        const btn = document.createElement("button");
+        btn.className = `btn btn-sub ${sub.id === currentState.subregion ? 'active' : ''}`;
+        btn.textContent = sub.name;
+        btn.dataset.sub = sub.id;
+        btn.addEventListener("click", () => {
+          subregionGroup.querySelectorAll(".btn-sub").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          currentState.subregion = sub.id;
+          renderSpecies();
+        });
+        subregionGroup.appendChild(btn);
+      });
+    }
+
+    function renderSpecies() {
+      const filtered = speciesDatabase.filter(item => {
+        const matchRegion = item.region === currentState.region;
+        const matchSeason = item.seasons.includes(currentState.season);
+        const matchSub = currentState.subregion === "all" || item.subregion === currentState.subregion;
+        const matchCat = currentState.category === "all" || item.category === currentState.category;
+        return matchRegion && matchSeason && matchSub && matchCat;
+      });
+
+      resultCount.textContent = `🔍 搜尋結果 (${regionData[currentState.region].name} - 找到 ${filtered.length} 種生物)`;
+      speciesGrid.innerHTML = "";
+
+      if (filtered.length === 0) {
+        speciesGrid.innerHTML = `<div class="empty-msg">🍃 此國家公園或條件下暫無登記的生物資料（可以點擊玉山、墾丁、雪霸、太魯閣、台江等地點查看範例），嘗試切換其他季節或分區！</div>`;
+        return;
+      }
+
+      filtered.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "species-card";
+        card.innerHTML = `
+          <img src="${item.img}" alt="${item.name}">
+          <div class="species-card-content">
+            <div>
+              <h3>${item.name}</h3>
+              <div class="latin">${item.latin}</div>
+            </div>
+            <div>
+              <span class="tag">${item.status}</span>
+            </div>
+          </div>
+        `;
+        card.addEventListener("click", () => openModal(item));
+        speciesGrid.appendChild(card);
+      });
+    }
+
+    function openModal(item) {
+      modalImg.src = item.img;
+      modalTitle.textContent = item.name;
+      modalLatin.textContent = item.latin;
+      modalRegion.textContent = regionData[item.region].name;
+      
+      const subObj = regionData[item.region].subregions.find(s => s.id === item.subregion);
+      modalSubregion.textContent = subObj ? subObj.name : item.subregion;
+      
+      const seasonNames = { spring: "春季", summer: "夏季", autumn: "秋季", winter: "冬季" };
+      modalSeasons.textContent = item.seasons.map(s => seasonNames[s]).join("、");
+      
+      modalStatus.textContent = item.status;
+      modalDesc.textContent = item.desc;
+      modalLink.href = item.link;
+
+      modalOverlay.classList.add("active");
+    }
+
+    function closeModal() {
+      modalOverlay.classList.remove("active");
+    }
+
+    window.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
